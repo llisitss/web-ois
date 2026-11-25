@@ -44,7 +44,13 @@ EVENTS = {
 }
 
 _event_ids = count(start=len(EVENTS) + 1)
+_club_ids = count(start=len(CLUBS) + 1)
 
 
 def next_event_id() -> int:
     return next(_event_ids)
+
+
+def next_club_id() -> int:
+    """Клубам id выдаём так же, как мероприятиям: счётчик, который не возвращается назад."""
+    return next(_club_ids)

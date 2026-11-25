@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/events", tags=["Мероприятия"])
 
 NOT_FOUND = {404: {"model": ErrorResponse, "description": "Мероприятие не найдено"}}
 CONFLICT = {409: {"model": ErrorResponse, "description": "Нарушено бизнес-правило (BR-1, BR-6)"}}
+BAD_PARAMS = {422: {"model": ErrorResponse, "description": "Некорректные параметры или тело запроса"}}
 
 
 def get_event_or_404(event_id: int) -> dict:
@@ -46,25 +47,57 @@ def check_business_rules(data: dict, event_id: int | None = None) -> None:
             )
 
 
-@router.get("", response_model=EventPage, summary="Список мероприятий")
+@router.get(
+    "",
+    response_model=EventPage,
+    summary="Список мероприятий",
+    description=(
+        "Афиша по возрастанию времени начала. Фильтры `room_id`, `q`, `club_id`, `date_from`, `date_to` "
+        "работают вместе и вместе с пагинацией: `total` — это количество мероприятий, оставшихся "
+        "после фильтрации, а `items` — только текущая страница этих мероприятий."
+    ),
+    responses=BAD_PARAMS,
+)
 def list_events(
-    club_id: Annotated[int | None, Query(description="Только мероприятия этого клуба")] = None,
-    date_from: Annotated[date | None, Query(description="Начиная с даты, включительно")] = None,
-    date_to: Annotated[date | None, Query(description="По дату, включительно")] = None,
-    page: Annotated[int, Query(ge=1, description="Номер страницы")] = 1,
-    size: Annotated[int, Query(ge=1, le=100, description="Мероприятий на странице")] = 20,
+    club_id: Annotated[int | None, Query(description="Только мероприятия этого клуба", examples=[2])] = None,
+    room_id: Annotated[
+        int | None,
+        Query(description="Только мероприятия в этой аудитории", examples=[1]),
+    ] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            min_length=2,
+            max_length=50,
+            description=(
+                "Подстрока в названии мероприятия; регистр букв не важен. "
+                "Строку короче 2 символов не принимаем — это 422."
+            ),
+            examples=["поиск"],
+        ),
+    ] = None,
+    date_from: Annotated[date | None, Query(description="Начиная с даты, включительно", examples=["2026-11-20"])] = None,
+    date_to: Annotated[date | None, Query(description="По дату, включительно", examples=["2026-11-30"])] = None,
+    page: Annotated[int, Query(ge=1, description="Номер страницы", examples=[1])] = 1,
+    size: Annotated[int, Query(ge=1, le=100, description="Мероприятий на странице", examples=[10])] = 20,
 ):
-    """Мероприятия по возрастанию времени начала. Фильтры можно сочетать."""
+    needle = q.casefold() if q is not None else None
     events = sorted(storage.EVENTS.values(), key=lambda e: e["starts_at"])
+
     if club_id is not None:
         events = [e for e in events if e["club_id"] == club_id]
+    if room_id is not None:
+        events = [e for e in events if e["room_id"] == room_id]
+    if needle is not None:
+        events = [e for e in events if needle in e["title"].casefold()]
     if date_from is not None:
         events = [e for e in events if e["starts_at"].date() >= date_from]
     if date_to is not None:
         events = [e for e in events if e["starts_at"].date() <= date_to]
 
-    start = (page - 1) * size
-    return {"items": events[start : start + size], "total": len(events), "page": page, "size": size}
+    total = len(events)
+    first = (page - 1) * size
+    return {"items": events[first : first + size], "total": total, "page": page, "size": size}
 
 
 @router.get("/{event_id}", response_model=EventRead, responses=NOT_FOUND, summary="Одно мероприятие")
@@ -76,7 +109,7 @@ def get_event(event_id: int):
     "",
     response_model=EventRead,
     status_code=status.HTTP_201_CREATED,
-    responses=CONFLICT,
+    responses={**CONFLICT, **BAD_PARAMS},
     summary="Создать мероприятие",
 )
 def create_event(payload: EventCreate):
@@ -91,7 +124,7 @@ def create_event(payload: EventCreate):
 @router.patch(
     "/{event_id}",
     response_model=EventRead,
-    responses={**NOT_FOUND, **CONFLICT},
+    responses={**NOT_FOUND, **CONFLICT, **BAD_PARAMS},
     summary="Изменить мероприятие",
 )
 def update_event(event_id: int, payload: EventUpdate):

@@ -1,9 +1,31 @@
-from pydantic import AwareDatetime, BaseModel, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
 
 class Club(BaseModel):
-    id: int
-    name: str
+    """Как отдаём клуб клиенту: id назначает сервер, клиент его не выбирает."""
+
+    id: int = Field(examples=[4])
+    name: str = Field(examples=["Клуб робототехники"])
+
+
+class ClubCreate(BaseModel):
+    """Входная модель: название клуба для создания и для переименования."""
+
+    name: str = Field(
+        description="Название клуба от 2 до 100 символов. Пробелы по краям в название не входят.",
+        examples=["Клуб робототехники", "   Киноклуб   "],
+    )
+
+    @field_validator("name")
+    @classmethod
+    def tidy_name(cls, raw: str) -> str:
+        # Сначала убираем пробелы по краям, потом проверяем длину: « a » станет «a» и не пройдёт min_length.
+        name = raw.strip()
+        if len(name) < 2:
+            raise ValueError("Название клуба должно быть не короче 2 символов")
+        if len(name) > 100:
+            raise ValueError("Название клуба должно быть не длиннее 100 символов")
+        return name
 
 
 class Room(BaseModel):

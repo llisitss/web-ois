@@ -11,9 +11,22 @@ EVENTS = [
     {"id": 2, "title": "Турнир по шахматам", "club": "Шахматный клуб", "room": "Аудитория 311"}
 ]
 
+CLUBS = [
+    {"id": 1, "name": "IT-клуб", "description": "Практические занятия по разработке и поиску"},
+    {"id": 2, "name": "Шахматный клуб", "description": "Турниры и разборы партий по вторникам"},
+    {"id": 3, "name": "Секция групповых тренировок", "description": "Групповые занятия в зале с ограничением мест"},
+]
+
+ROOMS = [
+    {"id": 1, "name": "Аудитория 203", "building": "Главный корпус", "capacity": 40},
+    {"id": 2, "name": "Аудитория 311", "building": "Главный корпус", "capacity": 25},
+    {"id": 3, "name": "Коворкинг", "building": "Корпус 3", "capacity": 12},
+]
+
+
 @app.get("/api/health")
 def health():
-    return { "status": "ok" }
+    return {"status": "ok"}
 
 @app.get("/api/events")
 def list_events():
@@ -25,3 +38,29 @@ def get_event(event_id: int):
         if event["id"] == event_id:
             return event
     raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+
+
+@app.get("/api/clubs")
+def list_clubs():
+    return CLUBS
+
+
+@app.get("/api/clubs/{club_id}")
+def get_club(club_id: int):
+    for club in CLUBS:
+        if club["id"] == club_id:
+            return club
+    raise HTTPException(status_code=404, detail=f"Клуб с id {club_id} не найден")
+
+
+@app.get("/api/rooms")
+def list_rooms():
+    return ROOMS
+
+
+@app.get("/api/rooms/{room_id}")
+def get_room(room_id: int):
+    for room in ROOMS:
+        if room["id"] == room_id:
+            return room
+    raise HTTPException(status_code=404, detail=f"Аудитория с id {room_id} не найдена")

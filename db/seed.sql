@@ -58,3 +58,34 @@ WHERE (e.title, u.email) IN (
                              ('Мастер-класс: Git без боли', 'anna@web-ois.local')
     )
 ORDER BY e.id, u.id;
+
+INSERT INTO tags (name) VALUES
+                            ('лекция'),
+                            ('IT'),
+                            ('турнир'),
+                            ('кино');
+
+-- Теги на мероприятиях: пары «название мероприятия — название тегов», id берутся из справочников.
+INSERT INTO event_tags (event_id, tag_id)
+SELECT e.id, t.id
+FROM (VALUES
+          ('Как устроен поиск Яндекса',  'лекция'),
+          ('Как устроен поиск Яндекса',  'IT'),
+          ('Мастер-класс: Git без боли', 'IT'),
+          ('Турнир по шахматам',         'турнир'),
+          ('Кино: «Сталкер»',            'кино')
+     ) AS v(event_title, tag_name)
+         JOIN events e ON e.title = v.event_title
+         JOIN tags t ON t.name = v.tag_name
+ORDER BY e.id, t.id;
+
+-- Отзывы. Анна — 5, Борис — 4, оба на лекцию про Яндекс.
+INSERT INTO reviews (event_id, student_id, rating, comment)
+SELECT e.id, u.id, v.rating, v.comment
+FROM (VALUES
+          ('Как устроен поиск Яндекса', 'anna@web-ois.local',  5, 'Рассказали про ранжирование, было понятно'),
+          ('Как устроен поиск Яндекса', 'boris@web-ois.local', 4, 'Хорошо, но не хватило практики')
+     ) AS v(event_title, email, rating, comment)
+         JOIN events e ON e.title = v.event_title
+         JOIN users u ON u.email = v.email
+ORDER BY u.id;

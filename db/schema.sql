@@ -65,3 +65,46 @@ CREATE TABLE registrations (
 
 CREATE UNIQUE INDEX registrations_one_active on registrations (event_id, user_id)
     WHERE status = 'active';
+
+
+-- Теги. Много ко многим: сам тег живёт отдельно от мероприятий, связь — в event_tags.
+CREATE TABLE tags (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name            text NOT NULL,
+
+    CONSTRAINT tags_name_unique UNIQUE (name),
+    CONSTRAINT tags_name_not_empty CHECK (btrim(name) <> '')
+);
+
+-- Связь мероприятия с тегом. Удалили мероприятие — связь исчезает вместе с ним
+-- (ON DELETE CASCADE), тег как справочник при этом остаётся.
+CREATE TABLE event_tags (
+    event_id        bigint NOT NULL,
+    tag_id          bigint NOT NULL,
+
+    CONSTRAINT event_tags_event_fk FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+    CONSTRAINT event_tags_tag_fk FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE,
+    -- один тег на одном мероприятии не ставится дважды
+    CONSTRAINT event_tags_event_tag_unique UNIQUE (event_id, tag_id)
+);
+
+-- Поиск мероприятий по тегу: сам уникальный ключ идёт (event_id, tag_id), поэтому
+-- для условия WHERE tag_id = ... нужен отдельный индекс по второй колонке.
+CREATE INDEX event_tags_by_tag_idx ON event_tags (tag_id);
+
+
+-- Отзывы студента на мероприятие.
+CREATE TABLE reviews (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    event_id        bigint NOT NULL,
+    student_id      bigint NOT NULL,
+    rating          integer NOT NULL,
+    comment         text,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT reviews_event_fk FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+    CONSTRAINT reviews_student_fk FOREIGN KEY (student_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT reviews_rating_between_1_and_5 CHECK (rating BETWEEN 1 AND 5),
+    -- один студент не может оставить на мероприятие больше одного отзыва
+    CONSTRAINT reviews_one_review_per_student UNIQUE (event_id, student_id)
+);
